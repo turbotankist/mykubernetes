@@ -1,0 +1,10 @@
+{
+"ImageId": "ami-6104cd77",
+ "InstanceType": "m3.medium",
+"KeyName" : "keyname" ,
+ "Placement": {  "AvailabilityZone": "us-east-1d" },
+  "NetworkInterfaces": [ {"DeviceIndex": 0, "Description": "Fixed spot IP",
+  "PrivateIpAddress": "172.31.13.56", "SubnetId": "subnet-bb8797fd", 
+"Groups": ["sg-b94f62c4"] } ]
+
+}

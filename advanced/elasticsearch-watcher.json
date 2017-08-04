@@ -1,0 +1,83 @@
+PUT _xpack/watcher/watch/DEV_stepcart_alerts
+{
+  "trigger": {
+    "schedule": {
+      "interval": "1m"
+    }
+  },
+  "input": {
+    "search": {
+      "request": {
+        "search_type": "query_then_fetch",
+        "indices": [
+          "logstash-*"
+        ],
+        "types": [],
+        "body": {
+          "size": 2,
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "range": {
+                    "@timestamp": {
+                      "from": "now-1m",
+                      "to": "now"
+                    }
+                  }
+                },
+                {
+                  "match": {
+                    "kubernetes.labels.stand": {
+                      "query": "dev",
+                      "type": "phrase"
+                    }
+                  }
+                }
+              ],
+              "must": 
+                {
+                  "bool": {
+              "should": [{
+                "query_string": {
+                  "query": "*.alert"
+                }
+              },
+                {
+                "query_string": {
+                  "query": "*.critical"
+                }
+              },
+              {     
+                "query_string": {
+                  "query": "*.emergency"
+                }
+              }
+              ]}}
+            }
+          }
+        }
+      }
+    }
+  },
+  "condition": {
+    "compare": {
+      "ctx.payload.hits.total": {
+        "gt": 0
+      }
+    }
+  },
+  "actions": {
+    "notify-slack": {
+      "throttle_period_in_millis": 60000,
+      "slack": {
+        "message": {
+          "to": [
+            "#elasticsearch-alerts"
+          ],
+          "text": "{{#ctx.payload.hits.hits}} {{_source.log}}\n {{/ctx.payload.hits.hits}}"
+        }
+      }
+    }
+  }
+}

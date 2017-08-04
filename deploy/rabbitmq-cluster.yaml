@@ -1,0 +1,104 @@
+apiVersion: apps/v1beta1
+kind: StatefulSet
+metadata:
+  name: rabbitmq
+  namespace: stepcart
+spec:
+  serviceName: rabbitmq
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: rabbitmq
+    spec:
+      nodeSelector:
+        node: worker      
+      containers:
+      - name: rabbitmq
+        image: rabbitmq:3.6.10-management-alpine
+        #command: [ "bash", "-c"]
+        #args: [  'rabbitmqctl join_cluster rabbit@rabbitmq-deploy-0.rabbitmq; docker-entrypoint.sh rabbitmq-server']
+        lifecycle:
+          postStart:
+            exec:
+              command:
+              - /bin/sh
+              - -c
+              - >
+                if [ -z "$(grep rabbitmq /etc/resolv.conf)" ]; then
+                  sed "s/^search \([^ ]\+\)/search rabbitmq.\1 \1/" /etc/resolv.conf > /etc/resolv.conf.new;
+                  cat /etc/resolv.conf.new > /etc/resolv.conf;
+                  rm /etc/resolv.conf.new;
+                fi;
+                until rabbitmqctl node_health_check; do sleep 1; done;
+                if [[ "$HOSTNAME" != "rabbitmq-0" && -z "$(rabbitmqctl cluster_status | grep rabbitmq-0)" ]]; then
+                  rabbitmqctl stop_app;
+                  rabbitmqctl join_cluster rabbit@rabbitmq-0;
+                  rabbitmqctl start_app;
+                fi;
+                rabbitmqctl set_policy ha-all "." '{"ha-mode":"exactly","ha-params":2,"ha-sync-mode":"automatic"}'
+        env:
+          - name: RABBITMQ_ERLANG_COOKIE
+            value: SECRETKEY
+          - name: RABBITMQ_VM_MEMORY_HIGH_WATERMARK
+            value: 512MiB
+          - name: RABBITMQ_DEFAULT_USER
+            value: admin
+          - name: RABBITMQ_DEFAULT_PASS
+            value: ADMINPASS
+        ports:
+        - containerPort: 5672
+          name: amqp
+        resources:
+          requests:
+            cpu: 0.5
+            memory: 500Mi
+        volumeMounts:
+        - name: rabbitmq
+          mountPath: /var/lib/rabbitmq
+      volumes:
+      - name: rabbitmq
+        hostPath:
+          path: /opt/var/stepcart/rabbitmq
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: rabbitmq
+  name: rabbitmq-cluster
+  namespace: stepcart
+spec:
+  ports:
+  - port: 5672
+    name: port-5672
+  - port: 4369
+    name: port-4369
+  - port: 5671
+    name: port-5671
+  - port: 15672
+    name: port-15672
+  - port: 25672
+    name: port-25672
+  selector:
+    app: rabbitmq
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: stepcart
+  name: rabbitmq
+  labels:
+    app: rabbitmq
+spec:
+  clusterIP: None
+  selector:
+    app: rabbitmq
+  ports:
+    - name: queue-port
+      port: 5672
+    - name: cluster-port
+      port: 4369
+    - name: dist-port
+      port: 25672

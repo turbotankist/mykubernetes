@@ -1,0 +1,49 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: monitoring-telegraf
+  namespace: kube-system
+  labels:
+    task: monitoring
+    k8s-app: telegraf
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        task: monitoring
+        k8s-app: telegraf
+    spec:
+      nodeSelector:
+        node: monitoring
+      containers:
+      - name: telegraf
+        image: telegraf:1.2-alpine
+        volumeMounts:
+        - mountPath: /etc/telegraf/telegraf.conf
+          name: config
+          subPath: telegraf.conf
+      volumes:
+      - name: config
+        configMap:
+          name: telegraf-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    task: monitoring
+    k8s-app: telegraf
+  name: monitoring-telegraf
+  namespace: kube-system
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8094
+    targetPort: 8094
+    name: http-influx
+    protocol: TCP
+#    nodePort: 31094
+  selector:
+    k8s-app: telegraf
+    task: monitoring

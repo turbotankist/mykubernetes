@@ -1,0 +1,60 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    app: open-vpn
+  namespace: kube-system
+  name: open-vpn
+spec:
+  template:
+    metadata:
+      labels:
+        app: open-vpn
+    spec:
+      nodeSelector:
+        node: monitoring
+      containers:
+      - name: open-vpn
+        #image: sebp/elkx
+        image: kylemanna/openvpn:2.4
+        resources:
+          requests:
+            cpu : 50m
+            memory  : 40Mi
+          limits:
+            cpu : 100m
+            memory: 100Mi
+        env:
+        - name: GET_HOSTS_FROM
+          value: dns
+        volumeMounts:
+        - name: pki
+          mountPath: /etc/openvpn
+        securityContext:
+          privileged: true
+        # - name: varlibdockercontainers
+        #   mountPath: /var/lib/docker/containers
+        #   readOnly: true
+    #  terminationGracePeriodSeconds: 30
+      volumes:
+      - name: pki
+        hostPath:
+          path: /opt/ovpn/conf
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: open-vpn
+  name: openvpn
+  namespace: kube-system
+spec:
+  type: NodePort
+  ports:
+  - protocol: UDP
+    name: openvpn
+    port: 1194
+    nodePort: 31194
+  selector:
+    app: open-vpn
+

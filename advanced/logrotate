@@ -1,0 +1,17 @@
+logrotate
+
+/etc/logrotate.d/docker-container.conf
+
+/var/lib/docker/containers/*/*.log {
+  rotate 3
+  daily
+  compress
+  size=10M
+  missingok
+  delaycompress
+  copytruncate
+}
+
+sudo systemctl restart logrotate.service
+sudo bash -c "ls -hal /var/lib/docker/containers/*/*.log | awk '{print $5}'"
+

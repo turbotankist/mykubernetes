@@ -1,0 +1,64 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    app: elasticsearch-kibana
+  namespace: kube-system
+  name: elasticsearch-kibana
+spec:
+  template:
+    metadata:
+      labels:
+        app: kibana
+        app2: elasticsearch
+    spec:
+      nodeSelector:
+        node: monitoring
+      containers:
+      - name: elasticsearch-kibana
+        image: sebp/elkx:540
+        #image: nshou/elasticsearch-kibana:latest
+        resources:
+          requests:
+            cpu : 500m
+            memory  : 4000Mi
+        #  limits:
+        #    cpu : 500m
+        #    memory: 10000Mi
+        env:
+        - name: GET_HOSTS_FROM
+          value: dns
+        volumeMounts:
+        - name: elastic
+          mountPath:  /var/lib/elasticsearch  
+        - name: elastic-etc
+          mountPath: /etc/elasticsearch
+      #      readOnly: true
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: elastic
+        hostPath:
+          path: /opt/elk/elastic
+      - name: elastic-etc
+        configMap:
+          name: elastic
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: kibana
+    app2: elasticsearch
+  name: elasticsearch
+  namespace: kube-system
+spec:
+ # type: NodePort
+  ports:
+  - name: elastic
+    port: 9200
+  - name: kibana
+    port: 5601
+  selector:
+    app: kibana
+    app2: elasticsearch
+
